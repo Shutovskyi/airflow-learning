@@ -11,11 +11,26 @@ with DAG(
     schedule="0 8 * * *",
     catchup=False,
     max_active_runs=1,
+    default_args={
+        "retries": 2,
+        "retry_delay": timedelta(minutes=5),
+    },
 ) as dag:
-    load_app_store = BashOperator(
-        task_id="load_app_store",
-        bash_command='python -u "$APP_PROJECT_DIR/scripts/load_app_store.py"',
-        retries=2,
-        retry_delay=timedelta(minutes=5),
+
+    download_apps = BashOperator(
+        task_id="download_apps",
+        bash_command='python -u "$APP_PROJECT_DIR/scripts/load_app_store.py" download',
+        env={"RUN_ID": "{{ run_id }}"},
+        append_env=True,
         do_xcom_push=False,
     )
+
+    load_dataframe = BashOperator(
+        task_id="load_dataframe",
+        bash_command='python -u "$APP_PROJECT_DIR/scripts/load_app_store.py" load',
+        env={"RUN_ID": "{{ run_id }}"},
+        append_env=True,
+        do_xcom_push=False,
+    )
+
+    download_apps >> load_dataframe
